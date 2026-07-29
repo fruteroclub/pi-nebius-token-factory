@@ -9,7 +9,7 @@ wrapper. But two configuration defaults will silently give you wrong numbers,
 and every secondary source we checked had at least one model's specs wrong. This
 guide is the version that survives contact with those problems.
 
-**Status:** steps 1–3 complete and verified. Step 4 in progress.
+**Status:** steps 1–5 complete and verified. All seven models smoke-tested.
 
 ---
 
@@ -276,6 +276,72 @@ An actual result from the smoke test above:
 > input may therefore be slightly over-counted at full rate. Unresolved.
 
 ---
+
+## Step 5 — Set defaults so bare `pi` works
+
+Without `~/.pi/agent/settings.json` you must pass `--provider` and `--model` on
+every invocation. A working file is in this repo: **[`settings.json`](settings.json)**.
+
+```bash
+cp settings.json ~/.pi/agent/settings.json
+```
+
+```json
+{
+  "defaultProvider": "nebius-token-factory",
+  "defaultModel": "MiniMaxAI/MiniMax-M2.5",
+  "defaultThinkingLevel": "off",
+  "enabledModels": ["nebius-token-factory/MiniMaxAI/MiniMax-M2.5", "..."]
+}
+```
+
+`enabledModels` controls which models cycle on Ctrl+P. Entries are
+`provider/model-id`.
+
+Verify:
+
+```bash
+pi -p "Reply with exactly: OK"
+```
+
+### Why MiniMax-M2.5 as the default
+
+Nebius describes it as an *"open-source agentic coding model built for polyglot
+development and precision refactoring, using interleaved-thinking tool calls to
+reliably execute long, multi-step coding workflows."* It ties `Qwen3.5-397B` on
+the Artificial Analysis index (34) at half the input price, and costs 4.6× less
+than `GLM-5.1` for six points less.
+
+The trade-off is throughput — 37 tok/s. When speed matters,
+`nvidia/Nemotron-3-Ultra-550b-a55b` runs at **523 tok/s** with a higher score
+and a 1M context, at 3.3× the input price. Escalate with `--model`, don't
+default to it.
+
+## Verified: all seven models
+
+Every model in the roster was smoke-tested with the same trivial prompt
+(`"Reply with exactly: OK"`) on 2026-07-29. All seven responded.
+
+| Model | AA | Cost of that one call | $/1M in | Tok/s |
+|---|---|---|---|---|
+| `moonshotai/Kimi-K3` | 57 | $0.0184 | 3.00 | 120 |
+| `zai-org/GLM-5.1` | 40 | $0.0085 | 1.40 | 25 |
+| `nvidia/Nemotron-3-Ultra-550b-a55b` | 38 | $0.0068 | 1.00 | 523 |
+| `Qwen/Qwen3.5-397B-A17B` | 34 | $0.0040 | 0.60 | 80 |
+| `MiniMaxAI/MiniMax-M2.5` | 34 | $0.0019 | 0.30 | 37 |
+| `openai/gpt-oss-120b` | 24 | $0.0009 | 0.15 | 40 |
+| `NousResearch/Hermes-4-70B` | 10 | $0.0008 | 0.13 | 20 |
+
+Total for all seven: **$0.041**.
+
+### The number worth staring at
+
+Each of those calls consumed **~6,000 input tokens** to answer *"Reply with
+exactly: OK"*. That is Pi's system prompt plus tool definitions, resent on every
+turn. Before you write a single line of your actual task, that is the floor.
+
+It is also why input price dominates output price for agentic work, and why a
+model that is 5× cheaper on input beats one that is 5× cheaper on output.
 
 ## Model roster
 

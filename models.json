@@ -1,0 +1,71 @@
+{
+  "providers": {
+    "nebius-token-factory": {
+      "baseUrl": "https://api.tokenfactory.nebius.com/v1/",
+      "api": "openai-completions",
+      "apiKey": "$NEBIUS_API_KEY",
+      "compat": {
+        "supportsDeveloperRole": false,
+        "supportsReasoningEffort": false
+      },
+      "models": [
+        {
+          "id": "moonshotai/Kimi-K3",
+          "name": "Kimi K3 (Moonshot AI) via Nebius Token Factory",
+          "reasoning": true,
+          "input": ["text", "image"],
+          "contextWindow": 1048576,
+          "cost": { "input": 3.0, "output": 15.0, "cacheRead": 0, "cacheWrite": 0 }
+        },
+        {
+          "id": "zai-org/GLM-5.1",
+          "name": "GLM-5.1 (Z.ai) via Nebius Token Factory",
+          "reasoning": true,
+          "input": ["text"],
+          "contextWindow": 202752,
+          "cost": { "input": 1.4, "output": 4.4, "cacheRead": 0, "cacheWrite": 0 }
+        },
+        {
+          "id": "nvidia/Nemotron-3-Ultra-550b-a55b",
+          "name": "Nemotron 3 Ultra 550B (NVIDIA) via Nebius Token Factory",
+          "reasoning": true,
+          "input": ["text"],
+          "contextWindow": 1048576,
+          "cost": { "input": 1.0, "output": 3.0, "cacheRead": 0, "cacheWrite": 0 }
+        },
+        {
+          "id": "Qwen/Qwen3.5-397B-A17B",
+          "name": "Qwen3.5 397B A17B (Alibaba) via Nebius Token Factory",
+          "reasoning": true,
+          "input": ["text"],
+          "contextWindow": 262144,
+          "cost": { "input": 0.6, "output": 3.6, "cacheRead": 0, "cacheWrite": 0 }
+        },
+        {
+          "id": "MiniMaxAI/MiniMax-M2.5",
+          "name": "MiniMax-M2.5 (MiniMax) via Nebius Token Factory",
+          "reasoning": true,
+          "input": ["text"],
+          "contextWindow": 196608,
+          "cost": { "input": 0.3, "output": 1.2, "cacheRead": 0, "cacheWrite": 0 }
+        },
+        {
+          "id": "openai/gpt-oss-120b",
+          "name": "gpt-oss-120b (OpenAI, open-weight) via Nebius Token Factory",
+          "reasoning": true,
+          "input": ["text"],
+          "contextWindow": 131072,
+          "cost": { "input": 0.15, "output": 0.6, "cacheRead": 0, "cacheWrite": 0 }
+        },
+        {
+          "id": "NousResearch/Hermes-4-70B",
+          "name": "Hermes 4 70B (Nous Research) via Nebius Token Factory",
+          "reasoning": true,
+          "input": ["text"],
+          "contextWindow": 131072,
+          "cost": { "input": 0.13, "output": 0.4, "cacheRead": 0, "cacheWrite": 0 }
+        }
+      ]
+    }
+  }
+}

@@ -171,26 +171,22 @@ are measuring.
 
 ---
 
-## Step 4 — Configure `models.json` (next)
+## Step 4 — Configure `models.json`
 
 Pi reads custom providers from `~/.pi/agent/models.json`.
 Reference: [pi.dev/docs/latest/models](https://pi.dev/docs/latest/models).
 
-```json
-{
-  "providers": {
-    "nebius-token-factory": {
-      "baseUrl": "https://api.tokenfactory.nebius.com/v1/",
-      "api": "openai-completions",
-      "apiKey": "$NEBIUS_API_KEY",
-      "models": [ ... ]
-    }
-  }
-}
+A working config with all seven roster models is in this repo:
+**[`models.json`](models.json)**. Install it:
+
+```bash
+mkdir -p ~/.pi/agent
+cp models.json ~/.pi/agent/models.json
+chmod 600 ~/.pi/agent/models.json
 ```
 
 `"$NEBIUS_API_KEY"` is environment interpolation — Pi resolves it at request
-time, so the key stays out of the config file.
+time, so the key never lives in the config file.
 
 **The two defaults that will silently corrupt your data:**
 
@@ -199,8 +195,85 @@ time, so the key stays out of the config file.
 | `cost` | all zeros | Pi reports **$0.00** for every task. Tokens still count; dollars do not |
 | `contextWindow` | `128000` | A 1M-context model is clamped to 128K |
 
-`cost` is expressed in **per-million-token rates**, matching what the API
-returns once you multiply the per-token decimals by 1,000,000.
+`cost` is expressed in **per-million-token rates** — the API returns per-token
+decimals, so multiply by 1,000,000.
+
+### ⚠️ You need `compat` or every request fails with 422
+
+This one is not optional. Without it:
+
+```
+422 status code (no body)
+```
+
+The same request via plain `curl` returns `200`, which is what makes this
+confusing — the API is fine, Pi is sending fields Nebius rejects. Pi uses the
+`developer` role and sends `reasoning_effort` for reasoning-capable models;
+Nebius accepts neither. Set both off at the **provider** level:
+
+```json
+"compat": {
+  "supportsDeveloperRole": false,
+  "supportsReasoningEffort": false
+}
+```
+
+With that in place, the same call succeeds. If you hit a bare 422 with no body,
+test the model with `curl` first — a `200` there tells you the problem is on the
+client side, not the provider's.
+
+### Verify
+
+```bash
+pi --list-models nebius-token-factory
+```
+
+```
+provider              model                              context  max-out  thinking  images
+nebius-token-factory  MiniMaxAI/MiniMax-M2.5             196.6K   16.4K    yes       no
+nebius-token-factory  moonshotai/Kimi-K3                 1.0M     16.4K    yes       yes
+nebius-token-factory  NousResearch/Hermes-4-70B          131.1K   16.4K    yes       no
+nebius-token-factory  nvidia/Nemotron-3-Ultra-550b-a55b  1.0M     16.4K    yes       no
+nebius-token-factory  openai/gpt-oss-120b                131.1K   16.4K    yes       no
+nebius-token-factory  Qwen/Qwen3.5-397B-A17B             262.1K   16.4K    yes       no
+nebius-token-factory  zai-org/GLM-5.1                    202.8K   16.4K    yes       no
+```
+
+`1.0M` on Kimi-K3 and Nemotron-Ultra confirms the `contextWindow` override took
+— without it both would read `128.0K`.
+
+Then a live call on the cheapest model:
+
+```bash
+pi --provider nebius-token-factory --model "NousResearch/Hermes-4-70B" -p "Reply with exactly: OK"
+```
+
+### Confirm cost is real
+
+The whole point. Read the newest session file:
+
+```bash
+f=$(find ~/.pi/agent/sessions -name "*.jsonl" -exec stat -f '%m %N' {} \; | sort -rn | head -1 | cut -d' ' -f2-)
+grep -o '"usage":{[^}]*}[^}]*}' "$f" | tail -1
+```
+
+An actual result from the smoke test above:
+
+```json
+{
+  "input": 6125, "output": 2, "cacheRead": 0, "cacheWrite": 0,
+  "reasoning": 0, "totalTokens": 6127,
+  "cost": { "input": 0.00079625, "output": 0.0000008, "total": 0.00079705 }
+}
+```
+
+**A non-zero `cost.total` means the setup is complete.** If it reads `0`, your
+`cost` fields did not load.
+
+> Note: `cacheRead` reports `0` here, but a direct `curl` to the same model
+> returned `"cached_tokens": 16` — so Nebius does cache prompts. Nebius publishes
+> no cache pricing, so this config sets `cacheRead`/`cacheWrite` to `0`. Cached
+> input may therefore be slightly over-counted at full rate. Unresolved.
 
 ---
 

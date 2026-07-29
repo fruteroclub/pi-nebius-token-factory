@@ -143,9 +143,26 @@ the API on at least one model.** Checked 2026-07-29:
 Prices, by contrast, matched the marketing page exactly.
 
 Two takeaways. **Read `context_length` from the API before you configure
-anything.** And **re-check before publishing any figure** — two models vanished
-from this catalog inside three days while we were working (`GLM-5.2` and every
-DeepSeek model, both gone as of 2026-07-27).
+anything.** And **re-check before publishing any figure** — the catalog moves.
+
+### Absent ≠ removed
+
+`/v1/models` lists what is **currently servable**. A model pulled for
+maintenance disappears from it exactly the same way a permanently delisted model
+does, and nothing in the response distinguishes the two.
+
+We hit this with `zai-org/GLM-5.2`, which is absent from the catalog. It is
+easy — and wrong — to conclude it was discontinued. Check
+[status.nebius.com](https://status.nebius.com) before assuming a missing model
+is gone for good.
+
+*(Note the domain: `status.nebius.com`, not `status.nebius.ai` — the latter does
+not resolve.)*
+
+Practical consequence for a benchmark: pin the model IDs you intend to use, and
+if one goes missing mid-run, find out **why** before substituting. A model that
+is merely down will come back, and swapping it out permanently changes what you
+are measuring.
 
 > The `8000` values on MiniMax-M3 and Kimi-K2.7-Code are unresolved. Both are the
 > newest additions, which suggests placeholder metadata rather than a real limit,

@@ -207,20 +207,46 @@ This one is not optional. Without it:
 ```
 
 The same request via plain `curl` returns `200`, which is what makes this
-confusing — the API is fine, Pi is sending fields Nebius rejects. Pi uses the
-`developer` role and sends `reasoning_effort` for reasoning-capable models;
-Nebius accepts neither. Set both off at the **provider** level:
+confusing — the API is fine, Pi is sending something Nebius rejects. Pi uses the
+OpenAI `developer` role for reasoning-capable models; Nebius does not accept it.
+Set that off at the **provider** level:
 
 ```json
 "compat": {
-  "supportsDeveloperRole": false,
-  "supportsReasoningEffort": false
+  "supportsDeveloperRole": false
 }
 ```
 
-With that in place, the same call succeeds. If you hit a bare 422 with no body,
-test the model with `curl` first — a `200` there tells you the problem is on the
-client side, not the provider's.
+**Only this one flag is needed.** Pi's docs mention `supportsReasoningEffort` in
+the same breath, and it is tempting to set both — we did, and it was wrong.
+Isolated with a throwaway config dir:
+
+| `supportsDeveloperRole` | `supportsReasoningEffort` | Result |
+|---|---|---|
+| `false` | `true` | ✅ works — `--thinking high` accepted, correct answer returned |
+| `true` | `false` | ❌ fails |
+
+Disabling `supportsReasoningEffort` costs you `--thinking` control for no
+benefit. Leave it on.
+
+If you hit a bare 422 with no body, test the model with `curl` first — a `200`
+there tells you the problem is client-side, and then **change one flag at a
+time**. Setting two at once is how you end up with a working config that quietly
+does less than it should.
+
+> Even with `reasoning_effort` enabled and `--thinking high`, GLM-5.1 reported
+> `reasoning: 0` tokens. Nebius accepts the parameter without erroring; whether
+> it acts on it is unconfirmed. `usage.reasoning` in the session log is how you
+> check per model.
+
+### Isolate config experiments safely
+
+`PI_CODING_AGENT_DIR` points Pi at a different config directory, so you can test
+provider settings without touching your working setup:
+
+```bash
+PI_CODING_AGENT_DIR=/tmp/pi-test/agent pi --model "zai-org/GLM-5.1" -p "test"
+```
 
 ### Verify
 

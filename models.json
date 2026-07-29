@@ -5,8 +5,7 @@
       "api": "openai-completions",
       "apiKey": "$NEBIUS_API_KEY",
       "compat": {
-        "supportsDeveloperRole": false,
-        "supportsReasoningEffort": false
+        "supportsDeveloperRole": false
       },
       "models": [
         {

@@ -1,0 +1,15 @@
+# Fetched artifacts
+nebius-models.json
+
+# Secrets — never commit
+.env
+.env.*
+*.key
+*.pem
+auth.json
+
+# Node
+node_modules/
+
+# OS
+.DS_Store

@@ -133,17 +133,56 @@ We cross-checked the catalog against the Nebius marketing page, Artificial
 Analysis, and a community relay's bundled model table. **Each one disagreed with
 the API on at least one model.** Checked 2026-07-29:
 
-| Claim | Source | API says |
-|---|---|---|
-| Kimi K3 context = 262K | community relay table | **1,048,576** |
-| Nemotron-3-Ultra context = 262K | Artificial Analysis | **1,048,576** |
-| MiniMax-M3 context = 1M | Nebius marketing page + AA | **8000** |
-| Kimi-K2.7-Code context = 262K | relay table + AA | **8000** |
+| Claim | Source | API says | Verdict |
+|---|---|---|---|
+| Kimi K3 context = 262K | community relay table | 1,048,576 | API right |
+| Nemotron-3-Ultra context = 262K | Artificial Analysis | 1,048,576 | API right |
+| MiniMax-M3 context = 1M | Nebius page + AA | 8000 | **API wrong** — see below |
+| Kimi-K2.7-Code context = 256K | relay table + AA | 8000 | **API wrong** — see below |
 
 Prices, by contrast, matched the marketing page exactly.
 
-Two takeaways. **Read `context_length` from the API before you configure
-anything.** And **re-check before publishing any figure** — the catalog moves.
+### `context_length: 8000` on the newest models is placeholder metadata
+
+Two models — `MiniMaxAI/MiniMax-M3` and `moonshotai/Kimi-K2.7-Code` — report
+`context_length: 8000`, against 1M and 256K on Artificial Analysis. Both are
+recent additions.
+
+**We tested it rather than guessing.** A 45,700-token prompt sent to each, asking
+a question only answerable by reading the whole input:
+
+```bash
+# ~2,600 numbered filler lines + "How many items are listed above?"
+curl -s "https://api.tokenfactory.nebius.com/v1/chat/completions" \
+  -H "Authorization: Bearer $NEBIUS_API_KEY" -H "Content-Type: application/json" \
+  --data-binary @big-prompt.json
+```
+
+| Model | Result |
+|---|---|
+| `MiniMaxAI/MiniMax-M3` | HTTP 200, `prompt_tokens: 45714`, answered `2600` — correct |
+| `moonshotai/Kimi-K2.7-Code` | HTTP 200, `prompt_tokens: 45535`, answered `2600` — correct |
+
+So `8000` is wrong and Artificial Analysis is right. **Do not disqualify a model
+on this field alone** — send an oversized prompt and see whether it is actually
+rejected. Conversely, don't take the published 1M on faith either: ~45K is what
+we verified, so this repo's config sets a conservative `contextWindow` rather
+than the advertised ceiling.
+
+### ⚠️ Reasoning tokens can consume your entire `max_tokens`
+
+The first run of that test used `max_tokens: 24` and returned **HTTP 200 with an
+empty `content` string** — no error, nothing to catch. Both models had spent the
+whole budget on `reasoning` before emitting any answer. Raising `max_tokens` to
+600 produced the correct reply immediately.
+
+If a reasoning-capable model returns empty content on a successful call, the
+budget is the first thing to check, not the prompt.
+
+So the rule is narrower than "trust the API": **the API is authoritative for
+model IDs and prices, and a starting point for context windows.** Where a context
+figure looks implausible, test it. And re-check any figure before publishing — the
+catalog moves.
 
 ### Absent ≠ removed
 
@@ -164,10 +203,9 @@ if one goes missing mid-run, find out **why** before substituting. A model that
 is merely down will come back, and swapping it out permanently changes what you
 are measuring.
 
-> The `8000` values on MiniMax-M3 and Kimi-K2.7-Code are unresolved. Both are the
-> newest additions, which suggests placeholder metadata rather than a real limit,
-> but we have not verified it. Until someone sends a >8K request and sees whether
-> it is rejected, treat them as unusable for agentic work.
+> The `8000` values on MiniMax-M3 and Kimi-K2.7-Code have been **disproven** —
+> see the test above. Both handle 45K+ correctly. Keep the general lesson: a
+> surprising metadata value is a prompt to test, not a reason to disqualify.
 
 ---
 
@@ -256,7 +294,7 @@ pi --list-models nebius-token-factory
 
 ```
 provider              model                              context  max-out  thinking  images
-nebius-token-factory  MiniMaxAI/MiniMax-M2.5             196.6K   16.4K    yes       no
+nebius-token-factory  MiniMaxAI/MiniMax-M3              196.6K   16.4K    yes       no
 nebius-token-factory  moonshotai/Kimi-K3                 1.0M     16.4K    yes       yes
 nebius-token-factory  NousResearch/Hermes-4-70B          131.1K   16.4K    yes       no
 nebius-token-factory  nvidia/Nemotron-3-Ultra-550b-a55b  1.0M     16.4K    yes       no
@@ -315,9 +353,9 @@ cp settings.json ~/.pi/agent/settings.json
 ```json
 {
   "defaultProvider": "nebius-token-factory",
-  "defaultModel": "MiniMaxAI/MiniMax-M2.5",
+  "defaultModel": "MiniMaxAI/MiniMax-M3",
   "defaultThinkingLevel": "off",
-  "enabledModels": ["nebius-token-factory/MiniMaxAI/MiniMax-M2.5", "..."]
+  "enabledModels": ["nebius-token-factory/MiniMaxAI/MiniMax-M3", "..."]
 }
 ```
 
@@ -330,15 +368,18 @@ Verify:
 pi -p "Reply with exactly: OK"
 ```
 
-### Why MiniMax-M2.5 as the default
+### Why MiniMax-M3 as the default
 
-Nebius describes it as an *"open-source agentic coding model built for polyglot
-development and precision refactoring, using interleaved-thinking tool calls to
-reliably execute long, multi-step coding workflows."* It ties `Qwen3.5-397B` on
-the Artificial Analysis index (34) at half the input price, and costs 4.6× less
-than `GLM-5.1` for six points less.
+A 428B MoE reasoning model, and the value pick of the whole catalog: **Artificial
+Analysis 44** — only 13 behind Kimi K3 — at **$0.30 / $1.20** and 248 tok/s. It
+beats its own sibling `MiniMax-M2.5` on every axis (AA 44 vs 34, ~7× the
+throughput) for exactly the same price.
 
-The trade-off is throughput — 37 tok/s. When speed matters,
+It was very nearly excluded: the API reports `context_length: 8000` for it. That
+turned out to be placeholder metadata (see step 3), and dropping it on that basis
+would have cost ten AA points for nothing.
+
+When you want a still-higher ceiling,
 `nvidia/Nemotron-3-Ultra-550b-a55b` runs at **523 tok/s** with a higher score
 and a 1M context, at 3.3× the input price. Escalate with `--model`, don't
 default to it.
@@ -354,6 +395,7 @@ Every model in the roster was smoke-tested with the same trivial prompt
 | `zai-org/GLM-5.1` | 40 | $0.0085 | 1.40 | 25 |
 | `nvidia/Nemotron-3-Ultra-550b-a55b` | 38 | $0.0068 | 1.00 | 523 |
 | `Qwen/Qwen3.5-397B-A17B` | 34 | $0.0040 | 0.60 | 80 |
+| `MiniMaxAI/MiniMax-M3` | 44 | $0.0019 | 0.30 | 248 |
 | `MiniMaxAI/MiniMax-M2.5` | 34 | $0.0019 | 0.30 | 37 |
 | `openai/gpt-oss-120b` | 24 | $0.0009 | 0.15 | 40 |
 | `NousResearch/Hermes-4-70B` | 10 | $0.0008 | 0.13 | 20 |
@@ -382,12 +424,16 @@ Intelligence Index v4.1. IDs and context windows verbatim from the API,
 | Z.ai | `zai-org/GLM-5.1` | 40 | 202,752 | 1.40 | 4.40 | eu-north1 |
 | NVIDIA | `nvidia/Nemotron-3-Ultra-550b-a55b` | 38 | 1,048,576 | 1.00 | 3.00 | us-central1 |
 | Alibaba | `Qwen/Qwen3.5-397B-A17B` | 34 | 262,144 | 0.60 | 3.60 | us-central1 |
-| MiniMax | `MiniMaxAI/MiniMax-M2.5` | 34 | 196,608 | 0.30 | 1.20 | us-central1 |
+| MiniMax | `MiniMaxAI/MiniMax-M3` | **44** | see note | 0.30 | 1.20 | us-central1 |
 | OpenAI | `openai/gpt-oss-120b` | 24 | 131,072 | 0.15 | 0.60 | eu-north1 |
 | Nous Research | `NousResearch/Hermes-4-70B` | 10 | 131,072 | 0.13 | 0.40 | eu-north1 |
 
-All seven report `tools` and `reasoning` support. All except `MiniMax-M2.5` also
-report `json_mode` and `structured_outputs`.
+All seven report `tools` and `reasoning` support. `MiniMax-M3` and `MiniMax-M2.5`
+do not report `json_mode` / `structured_outputs`; the rest do.
+
+**MiniMax-M3 context:** Artificial Analysis says 1M, the API says 8000, and we
+verified 45,714 by test. This repo's config sets `196608` — comfortably above what
+is proven, well below what is claimed. Raise it if you verify higher.
 
 `gpt-oss-120b` is from OpenAI but open-weight, so it belongs in an open-model
 roster.

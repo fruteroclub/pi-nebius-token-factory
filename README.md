@@ -1,13 +1,8 @@
 # Pi Coding Agent on Nebius Token Factory
 
-A clean, reproducible setup for running [Pi Coding Agent](https://pi.dev) against
-[Nebius Token Factory](https://tokenfactory.nebius.com) open-weight models —
-with **per-token cost tracking that reports real dollars**, not zeros.
+A clean, reproducible setup for running [Pi Coding Agent](https://pi.dev) against [Nebius Token Factory](https://tokenfactory.nebius.com) open-weight models — with **per-token cost tracking that reports real dollars**, not zeros.
 
-Pi already tracks token usage and cost natively. No extension, no proxy, no
-wrapper. But two configuration defaults will silently give you wrong numbers,
-and every secondary source we checked had at least one model's specs wrong. This
-guide is the version that survives contact with those problems.
+Pi already tracks token usage and cost natively. No extension, no proxy, no wrapper. But three configuration defaults will silently give you wrong numbers — or no output at all — and every secondary source we checked had at least one model's specs wrong. This guide is the version that survives contact with those problems.
 
 **Status:** steps 1–5 complete and verified. All seven models smoke-tested.
 
@@ -15,16 +10,14 @@ guide is the version that survives contact with those problems.
 
 ## Why this exists
 
-If you want to know what an agentic coding task actually costs, you need three
-things to be true at once:
+If you want to know what an agentic coding task actually costs, you need four things to be true at once:
 
 1. The agent reports token usage per message. *Pi does, natively.*
 2. The per-model prices are correct. *They default to zero — see step 4.*
 3. The context window is correct. *It defaults to 128000 — see step 4.*
+4. The output cap is high enough. *It defaults to 16384 — see step 4.*
 
-Miss #2 and every task reports **$0.00**. Miss #3 and a 1M-context model gets
-silently clamped to 128K, so you are not measuring what you think you are
-measuring. Neither failure raises an error.
+Miss #2 and every task reports **$0.00**. Miss #3 and a 1M-context model is silently clamped to 128K. Miss #4 and long outputs are truncated mid-file and never written. **None of the three raises an error.**
 
 ---
 
@@ -42,9 +35,7 @@ measuring. Neither failure raises an error.
 npm install -g --ignore-scripts @earendil-works/pi-coding-agent
 ```
 
-`--ignore-scripts` disables dependency lifecycle scripts during install. Pi does
-not require install scripts for normal npm installs, so this is free hardening.
-Source: [pi.dev/docs/latest](https://pi.dev/docs/latest).
+`--ignore-scripts` disables dependency lifecycle scripts during install. Pi does not require install scripts for normal npm installs, so this is free hardening. Source: [pi.dev/docs/latest](https://pi.dev/docs/latest).
 
 Verify:
 
@@ -53,9 +44,7 @@ pi --version
 which pi
 ```
 
-Verified against **0.82.1**. Note where the binary lands — with `nvm`, it goes
-into the *active* Node version's prefix. Installing under one Node version and
-running under another is a common way to get `command not found`.
+Verified against **0.82.1**. Note where the binary lands — with `nvm`, it goes into the *active* Node version's prefix. Installing under one Node version and running under another is a common way to get `command not found`.
 
 ---
 
@@ -67,29 +56,23 @@ Put it in `~/.zshenv`, **not** `~/.zshrc`:
 export NEBIUS_API_KEY="<your-key>"
 ```
 
-zsh reads `~/.zshenv` for *every* shell, interactive or not. `.zshrc` is only
-read by interactive shells, so anything non-interactive — scripts, daemons,
-tooling that spawns its own shell — would not see the key.
+zsh reads `~/.zshenv` for *every* shell, interactive or not. `.zshrc` is only read by interactive shells, so anything non-interactive — scripts, daemons, tooling that spawns its own shell — would not see the key.
 
 ### ⚠️ Do not append with `echo >>`
 
 Two hazards, both real:
 
-**Shell history.** `echo 'export NEBIUS_API_KEY="..."' >> ~/.zshenv` writes your
-key into `~/.zsh_history` in plaintext.
+**Shell history.** `echo 'export NEBIUS_API_KEY="..."' >> ~/.zshenv` writes your key into `~/.zsh_history` in plaintext.
 
-**Missing trailing newline.** If the file does not already end in a newline,
-`>>` concatenates onto the last line. You get this:
+**Missing trailing newline.** If the file does not already end in a newline, `>>` concatenates onto the last line. You get this:
 
 ```
 export SOME_OTHER_TOKEN=abc123export NEBIUS_API_KEY="..."
 ```
 
-Now `SOME_OTHER_TOKEN`'s value silently swallows the entire export statement,
-and `NEBIUS_API_KEY` is never defined. Two broken variables, no error message.
+Now `SOME_OTHER_TOKEN`'s value silently swallows the entire export statement, and `NEBIUS_API_KEY` is never defined. Two broken variables, no error message.
 
-Use `read` with an explicit newline in the `printf` format instead — the key
-never enters a command, so it never enters your history:
+Use `read` with an explicit newline in the `printf` format instead — the key never enters a command, so it never enters your history:
 
 ```bash
 read -rs "k?Nebius key: "
@@ -97,8 +80,7 @@ printf 'export NEBIUS_API_KEY="%s"\n' "$k" >> ~/.zshenv
 unset k
 ```
 
-The `\n` in the format string is the fix: it always terminates the line, so the
-next append cannot collide.
+The `\n` in the format string is the fix: it always terminates the line, so the next append cannot collide.
 
 Open a new terminal and verify **without printing the key**:
 
@@ -123,15 +105,11 @@ jq -r '.data | sort_by(.id)[] | [.id, .context_length,
   ((.supported_features//[])|join(","))] | @tsv' nebius-models.json | column -t -s$'\t'
 ```
 
-Each entry carries `id`, `context_length`, `pricing` (per-token decimal strings),
-`architecture.modality`, `supported_features`, `regions`, and
-`per_request_limits`.
+Each entry carries `id`, `context_length`, `pricing` (per-token decimal strings), `architecture.modality`, `supported_features`, `regions`, and `per_request_limits`.
 
 ### This endpoint is the only source of truth
 
-We cross-checked the catalog against the Nebius marketing page, Artificial
-Analysis, and a community relay's bundled model table. **Each one disagreed with
-the API on at least one model.** Checked 2026-07-29:
+We cross-checked the catalog against the Nebius marketing page, Artificial Analysis, and a community relay's bundled model table. **Each one disagreed with the API on at least one model.** Checked 2026-07-29:
 
 | Claim | Source | API says | Verdict |
 |---|---|---|---|
@@ -144,12 +122,9 @@ Prices, by contrast, matched the marketing page exactly.
 
 ### `context_length: 8000` on the newest models is placeholder metadata
 
-Two models — `MiniMaxAI/MiniMax-M3` and `moonshotai/Kimi-K2.7-Code` — report
-`context_length: 8000`, against 1M and 256K on Artificial Analysis. Both are
-recent additions.
+Two models — `MiniMaxAI/MiniMax-M3` and `moonshotai/Kimi-K2.7-Code` — report `context_length: 8000`, against 1M and 256K on Artificial Analysis. Both are recent additions.
 
-**We tested it rather than guessing.** A 45,700-token prompt sent to each, asking
-a question only answerable by reading the whole input:
+**We tested it rather than guessing.** A 45,700-token prompt sent to each, asking a question only answerable by reading the whole input:
 
 ```bash
 # ~2,600 numbered filler lines + "How many items are listed above?"
@@ -163,59 +138,39 @@ curl -s "https://api.tokenfactory.nebius.com/v1/chat/completions" \
 | `MiniMaxAI/MiniMax-M3` | HTTP 200, `prompt_tokens: 45714`, answered `2600` — correct |
 | `moonshotai/Kimi-K2.7-Code` | HTTP 200, `prompt_tokens: 45535`, answered `2600` — correct |
 
-So `8000` is wrong and Artificial Analysis is right. **Do not disqualify a model
-on this field alone** — send an oversized prompt and see whether it is actually
-rejected. Conversely, don't take the published 1M on faith either: ~45K is what
-we verified, so this repo's config sets a conservative `contextWindow` rather
-than the advertised ceiling.
+So `8000` is wrong and Artificial Analysis is right. **Do not disqualify a model on this field alone** — send an oversized prompt and see whether it is actually rejected. Conversely, don't take the published 1M on faith either: ~45K is what we verified, so this repo's config sets a conservative `contextWindow` rather than the advertised ceiling.
 
 ### ⚠️ Reasoning tokens can consume your entire `max_tokens`
 
-The first run of that test used `max_tokens: 24` and returned **HTTP 200 with an
-empty `content` string** — no error, nothing to catch. Both models had spent the
-whole budget on `reasoning` before emitting any answer. Raising `max_tokens` to
-600 produced the correct reply immediately.
+The first run of that test used `max_tokens: 24` and returned **HTTP 200 with an empty `content` string** — no error, nothing to catch. Both models had spent the whole budget on `reasoning` before emitting any answer. Raising `max_tokens` to 600 produced the correct reply immediately.
 
-If a reasoning-capable model returns empty content on a successful call, the
-budget is the first thing to check, not the prompt.
+If a reasoning-capable model returns empty content on a successful call, the budget is the first thing to check, not the prompt.
 
-So the rule is narrower than "trust the API": **the API is authoritative for
-model IDs and prices, and a starting point for context windows.** Where a context
-figure looks implausible, test it. And re-check any figure before publishing — the
-catalog moves.
+So the rule is narrower than "trust the API": **the API is authoritative for model IDs and prices, and a starting point for context windows.** Where a context figure looks implausible, test it. And re-check any figure before publishing — the catalog moves.
 
 ### Absent ≠ removed
 
-`/v1/models` lists what is **currently servable**. A model pulled for
-maintenance disappears from it exactly the same way a permanently delisted model
-does, and nothing in the response distinguishes the two.
+`/v1/models` lists what is **currently servable**. A model pulled for maintenance disappears from it exactly the same way a permanently delisted model does, and nothing in the response distinguishes the two.
 
-We hit this with `zai-org/GLM-5.2`, which is absent from the catalog. It is
-easy — and wrong — to conclude it was discontinued. Check
-[status.nebius.com](https://status.nebius.com) before assuming a missing model
-is gone for good.
+We hit this with `zai-org/GLM-5.2`. It vanished from the catalog on 2026-07-27, and a community relay's documentation stated flatly that Nebius had "removed" it. It was easy — and wrong — to conclude it was discontinued.
 
-*(Note the domain: `status.nebius.com`, not `status.nebius.ai` — the latter does
-not resolve.)*
+**It came back.** On 2026-07-30 the catalog returned 26 models with `zai-org/GLM-5.2` among them, serving normally. It had been downtime the whole time. Had we treated the absence as permanent, we would have dropped the **#2 open-weight model on Artificial Analysis** from our roster over a maintenance window.
 
-Practical consequence for a benchmark: pin the model IDs you intend to use, and
-if one goes missing mid-run, find out **why** before substituting. A model that
-is merely down will come back, and swapping it out permanently changes what you
-are measuring.
+Check [status.nebius.com](https://status.nebius.com) before assuming a missing model is gone for good.
 
-> The `8000` values on MiniMax-M3 and Kimi-K2.7-Code have been **disproven** —
-> see the test above. Both handle 45K+ correctly. Keep the general lesson: a
-> surprising metadata value is a prompt to test, not a reason to disqualify.
+*(Note the domain: `status.nebius.com`, not `status.nebius.ai` — the latter does not resolve.)*
+
+Practical consequence for a benchmark: pin the model IDs you intend to use, and if one goes missing mid-run, find out **why** before substituting. A model that is merely down will come back, and swapping it out permanently changes what you are measuring.
+
+> The `8000` values on MiniMax-M3 and Kimi-K2.7-Code have been **disproven** — see the test above. Both handle 45K+ correctly. Keep the general lesson: a surprising metadata value is a prompt to test, not a reason to disqualify.
 
 ---
 
 ## Step 4 — Configure `models.json`
 
-Pi reads custom providers from `~/.pi/agent/models.json`.
-Reference: [pi.dev/docs/latest/models](https://pi.dev/docs/latest/models).
+Pi reads custom providers from `~/.pi/agent/models.json`. Reference: [pi.dev/docs/latest/models](https://pi.dev/docs/latest/models).
 
-A working config with all seven roster models is in this repo:
-**[`models.json`](models.json)**. Install it:
+A working config with all seven roster models is in this repo: **[`models.json`](models.json)**. Install it:
 
 ```bash
 mkdir -p ~/.pi/agent
@@ -223,18 +178,43 @@ cp models.json ~/.pi/agent/models.json
 chmod 600 ~/.pi/agent/models.json
 ```
 
-`"$NEBIUS_API_KEY"` is environment interpolation — Pi resolves it at request
-time, so the key never lives in the config file.
+`"$NEBIUS_API_KEY"` is environment interpolation — Pi resolves it at request time, so the key never lives in the config file.
 
-**The two defaults that will silently corrupt your data:**
+**The three defaults that will silently corrupt your data:**
 
 | Field | Default | If you omit it |
 |---|---|---|
 | `cost` | all zeros | Pi reports **$0.00** for every task. Tokens still count; dollars do not |
 | `contextWindow` | `128000` | A 1M-context model is clamped to 128K |
+| `maxTokens` | `16384` | Long outputs are **truncated mid-file**. No error, exit code 0 |
 
-`cost` is expressed in **per-million-token rates** — the API returns per-token
-decimals, so multiply by 1,000,000.
+All three are **per-model fields in `models.json`**. There is no global setting and no CLI flag — Pi's `settings.json` holds only `defaultProvider`, `defaultModel`, `defaultThinkingLevel`, `enabledModels`, and three UI modes. Every model you add later starts from these defaults again.
+
+### ⚠️ `maxTokens` — the one that cost us a run
+
+We lost a full agentic run to this. Two phases asked the model to write source files, both exceeded 16,384 output tokens, both were cut off mid-file, and **nothing reached disk**. The session log showed `stopReason: "length"`; the shell showed exit code 0, empty stdout, empty stderr. Roughly half an hour of wall-clock produced no artifacts and no error.
+
+If an agentic phase produces nothing, check the stop reason before you check anything else:
+
+```bash
+grep -o '"stopReason":"[a-z]*"' ~/.pi/agent/sessions/*/*.jsonl | sort | uniq -c
+```
+
+`length` means truncation, not refusal.
+
+**Nebius does not publish a per-model output ceiling.** The only limit field on `/v1/models` is `per_request_limits`, and that is rate limiting — `tokens_per_minute`, `requests_per_minute`, `burst_ratio` — not a cap on a single response.
+
+The one published per-model ceiling that *is* real is `context_length`, and a response can never exceed the context window. So set `maxTokens` to the model's context length and the cap stops being a binding constraint:
+
+```json
+{ "id": "moonshotai/Kimi-K3", "contextWindow": 1048576, "maxTokens": 1048576 }
+```
+
+Verified empirically: Nebius accepted `max_tokens: 262144` on Kimi K3 without complaint, so the API is not the limit — Pi's default was.
+
+**The trade-off is a runaway turn.** `maxTokens` is a ceiling, not a reservation — you are billed only on tokens generated — but it does bound the worst case. At Kimi K3's $15/1M output, a single turn that ran to 1,048,576 tokens would cost about **$15.73**. Most models in this catalog are far cheaper: GLM-5.2 tops out near $0.87, gpt-oss-120b near $0.08. Pick the ceiling you are willing to pay for once.
+
+`cost` is expressed in **per-million-token rates** — the API returns per-token decimals, so multiply by 1,000,000.
 
 ### ⚠️ You need `compat` or every request fails with 422
 
@@ -244,10 +224,7 @@ This one is not optional. Without it:
 422 status code (no body)
 ```
 
-The same request via plain `curl` returns `200`, which is what makes this
-confusing — the API is fine, Pi is sending something Nebius rejects. Pi uses the
-OpenAI `developer` role for reasoning-capable models; Nebius does not accept it.
-Set that off at the **provider** level:
+The same request via plain `curl` returns `200`, which is what makes this confusing — the API is fine, Pi is sending something Nebius rejects. Pi uses the OpenAI `developer` role for reasoning-capable models; Nebius does not accept it. Set that off at the **provider** level:
 
 ```json
 "compat": {
@@ -255,32 +232,22 @@ Set that off at the **provider** level:
 }
 ```
 
-**Only this one flag is needed.** Pi's docs mention `supportsReasoningEffort` in
-the same breath, and it is tempting to set both — we did, and it was wrong.
-Isolated with a throwaway config dir:
+**Only this one flag is needed.** Pi's docs mention `supportsReasoningEffort` in the same breath, and it is tempting to set both — we did, and it was wrong. Isolated with a throwaway config dir:
 
 | `supportsDeveloperRole` | `supportsReasoningEffort` | Result |
 |---|---|---|
 | `false` | `true` | ✅ works — `--thinking high` accepted, correct answer returned |
 | `true` | `false` | ❌ fails |
 
-Disabling `supportsReasoningEffort` costs you `--thinking` control for no
-benefit. Leave it on.
+Disabling `supportsReasoningEffort` costs you `--thinking` control for no benefit. Leave it on.
 
-If you hit a bare 422 with no body, test the model with `curl` first — a `200`
-there tells you the problem is client-side, and then **change one flag at a
-time**. Setting two at once is how you end up with a working config that quietly
-does less than it should.
+If you hit a bare 422 with no body, test the model with `curl` first — a `200` there tells you the problem is client-side, and then **change one flag at a time**. Setting two at once is how you end up with a working config that quietly does less than it should.
 
-> Even with `reasoning_effort` enabled and `--thinking high`, GLM-5.1 reported
-> `reasoning: 0` tokens. Nebius accepts the parameter without erroring; whether
-> it acts on it is unconfirmed. `usage.reasoning` in the session log is how you
-> check per model.
+> Even with `reasoning_effort` enabled and `--thinking high`, GLM-5.1 reported `reasoning: 0` tokens. Nebius accepts the parameter without erroring; whether it acts on it is unconfirmed. `usage.reasoning` in the session log is how you check per model.
 
 ### Isolate config experiments safely
 
-`PI_CODING_AGENT_DIR` points Pi at a different config directory, so you can test
-provider settings without touching your working setup:
+`PI_CODING_AGENT_DIR` points Pi at a different config directory, so you can test provider settings without touching your working setup:
 
 ```bash
 PI_CODING_AGENT_DIR=/tmp/pi-test/agent pi --model "zai-org/GLM-5.1" -p "test"
@@ -303,8 +270,7 @@ nebius-token-factory  Qwen/Qwen3.5-397B-A17B             262.1K   16.4K    yes  
 nebius-token-factory  zai-org/GLM-5.1                    202.8K   16.4K    yes       no
 ```
 
-`1.0M` on Kimi-K3 and Nemotron-Ultra confirms the `contextWindow` override took
-— without it both would read `128.0K`.
+`1.0M` on Kimi-K3 and Nemotron-Ultra confirms the `contextWindow` override took — without it both would read `128.0K`.
 
 Then a live call on the cheapest model:
 
@@ -331,20 +297,15 @@ An actual result from the smoke test above:
 }
 ```
 
-**A non-zero `cost.total` means the setup is complete.** If it reads `0`, your
-`cost` fields did not load.
+**A non-zero `cost.total` means the setup is complete.** If it reads `0`, your `cost` fields did not load.
 
-> Note: `cacheRead` reports `0` here, but a direct `curl` to the same model
-> returned `"cached_tokens": 16` — so Nebius does cache prompts. Nebius publishes
-> no cache pricing, so this config sets `cacheRead`/`cacheWrite` to `0`. Cached
-> input may therefore be slightly over-counted at full rate. Unresolved.
+> Note: `cacheRead` reports `0` here, but a direct `curl` to the same model returned `"cached_tokens": 16` — so Nebius does cache prompts. Nebius publishes no cache pricing, so this config sets `cacheRead`/`cacheWrite` to `0`. Cached input may therefore be slightly over-counted at full rate. Unresolved.
 
 ---
 
 ## Step 5 — Set defaults so bare `pi` works
 
-Without `~/.pi/agent/settings.json` you must pass `--provider` and `--model` on
-every invocation. A working file is in this repo: **[`settings.json`](settings.json)**.
+Without `~/.pi/agent/settings.json` you must pass `--provider` and `--model` on every invocation. A working file is in this repo: **[`settings.json`](settings.json)**.
 
 ```bash
 cp settings.json ~/.pi/agent/settings.json
@@ -359,8 +320,7 @@ cp settings.json ~/.pi/agent/settings.json
 }
 ```
 
-`enabledModels` controls which models cycle on Ctrl+P. Entries are
-`provider/model-id`.
+`enabledModels` controls which models cycle on Ctrl+P. Entries are `provider/model-id`.
 
 Verify:
 
@@ -370,24 +330,15 @@ pi -p "Reply with exactly: OK"
 
 ### Why MiniMax-M3 as the default
 
-A 428B MoE reasoning model, and the value pick of the whole catalog: **Artificial
-Analysis 44** — only 13 behind Kimi K3 — at **$0.30 / $1.20** and 248 tok/s. It
-beats its own sibling `MiniMax-M2.5` on every axis (AA 44 vs 34, ~7× the
-throughput) for exactly the same price.
+A 428B MoE reasoning model, and the value pick of the whole catalog: **Artificial Analysis 44** — only 13 behind Kimi K3 — at **$0.30 / $1.20** and 248 tok/s. It beats its own sibling `MiniMax-M2.5` on every axis (AA 44 vs 34, ~7× the throughput) for exactly the same price.
 
-It was very nearly excluded: the API reports `context_length: 8000` for it. That
-turned out to be placeholder metadata (see step 3), and dropping it on that basis
-would have cost ten AA points for nothing.
+It was very nearly excluded: the API reports `context_length: 8000` for it. That turned out to be placeholder metadata (see step 3), and dropping it on that basis would have cost ten AA points for nothing.
 
-When you want a still-higher ceiling,
-`nvidia/Nemotron-3-Ultra-550b-a55b` runs at **523 tok/s** with a higher score
-and a 1M context, at 3.3× the input price. Escalate with `--model`, don't
-default to it.
+When you want a still-higher ceiling, `nvidia/Nemotron-3-Ultra-550b-a55b` runs at **523 tok/s** with a higher score and a 1M context, at 3.3× the input price. Escalate with `--model`, don't default to it.
 
 ## Verified: all seven models
 
-Every model in the roster was smoke-tested with the same trivial prompt
-(`"Reply with exactly: OK"`) on 2026-07-29. All seven responded.
+Every model in the roster was smoke-tested with the same trivial prompt (`"Reply with exactly: OK"`) on 2026-07-29. All seven responded.
 
 | Model | AA | Cost of that one call | $/1M in | Tok/s |
 |---|---|---|---|---|
@@ -404,19 +355,13 @@ Total for all seven: **$0.041**.
 
 ### The number worth staring at
 
-Each of those calls consumed **~6,000 input tokens** to answer *"Reply with
-exactly: OK"*. That is Pi's system prompt plus tool definitions, resent on every
-turn. Before you write a single line of your actual task, that is the floor.
+Each of those calls consumed **~6,000 input tokens** to answer *"Reply with exactly: OK"*. That is Pi's system prompt plus tool definitions, resent on every turn. Before you write a single line of your actual task, that is the floor.
 
-It is also why input price dominates output price for agentic work, and why a
-model that is 5× cheaper on input beats one that is 5× cheaper on output.
+It is also why input price dominates output price for agentic work, and why a model that is 5× cheaper on input beats one that is 5× cheaper on output.
 
 ## Model roster
 
-One model per lab, best-of-lab by
-[Artificial Analysis](https://artificialanalysis.ai/models/open-source)
-Intelligence Index v4.1. IDs and context windows verbatim from the API,
-2026-07-29.
+One model per lab, best-of-lab by [Artificial Analysis](https://artificialanalysis.ai/models/open-source) Intelligence Index v4.1. IDs and context windows verbatim from the API, 2026-07-29.
 
 | Lab | Model ID | AA | Context | $/1M in | $/1M out | Region |
 |---|---|---|---|---|---|---|
@@ -428,38 +373,29 @@ Intelligence Index v4.1. IDs and context windows verbatim from the API,
 | OpenAI | `openai/gpt-oss-120b` | 24 | 131,072 | 0.15 | 0.60 | eu-north1 |
 | Nous Research | `NousResearch/Hermes-4-70B` | 10 | 131,072 | 0.13 | 0.40 | eu-north1 |
 
-All seven report `tools` and `reasoning` support. `MiniMax-M3` and `MiniMax-M2.5`
-do not report `json_mode` / `structured_outputs`; the rest do.
+All seven report `tools` and `reasoning` support. `MiniMax-M3` and `MiniMax-M2.5` do not report `json_mode` / `structured_outputs`; the rest do.
 
-**MiniMax-M3 context:** Artificial Analysis says 1M, the API says 8000, and we
-verified 45,714 by test. This repo's config sets `196608` — comfortably above what
-is proven, well below what is claimed. Raise it if you verify higher.
+**MiniMax-M3 context:** Artificial Analysis says 1M, the API says 8000, and we verified 45,714 by test. This repo's config sets `196608` — comfortably above what is proven, well below what is claimed. Raise it if you verify higher.
 
-`gpt-oss-120b` is from OpenAI but open-weight, so it belongs in an open-model
-roster.
+`gpt-oss-120b` is from OpenAI but open-weight, so it belongs in an open-model roster.
 
 ### Not usable as coding agents
 
-These three report **no `tools` capability**, so they cannot drive an agent
-regardless of their benchmark scores:
+These three report **no `tools` capability**, so they cannot drive an agent regardless of their benchmark scores:
 
 - `Qwen/Qwen2.5-VL-72B-Instruct`
 - `openbmb/MiniCPM-V-4_5`
-- `nvidia/Llama-3_1-Nemotron-Ultra-253B-v1` — has `json_mode`,
-  `structured_outputs` and `reasoning`, but no `tools`
+- `nvidia/Llama-3_1-Nemotron-Ultra-253B-v1` — has `json_mode`, `structured_outputs` and `reasoning`, but no `tools`
 
 ### One counterintuitive result
 
-**`Hermes-4-70B` outperforms `Hermes-4-405B`** on the AA index — 10 vs 9 — at
-$0.13/$0.40 against $1.00/$3.00. The 405B is roughly 8× the price for a lower
-score. Picking best-of-lab surfaces this; picking biggest-of-lab hides it.
+**`Hermes-4-70B` outperforms `Hermes-4-405B`** on the AA index — 10 vs 9 — at $0.13/$0.40 against $1.00/$3.00. The 405B is roughly 8× the price for a lower score. Picking best-of-lab surfaces this; picking biggest-of-lab hides it.
 
 ---
 
 ## Where cost data lands
 
-Pi writes one JSONL file per session under `~/.pi/agent/sessions/<project>/`.
-Every assistant message carries usage **and computed cost**:
+Pi writes one JSONL file per session under `~/.pi/agent/sessions/<project>/`. Every assistant message carries usage **and computed cost**:
 
 ```json
 {
@@ -469,9 +405,7 @@ Every assistant message carries usage **and computed cost**:
 }
 ```
 
-Messages are timestamped, so a run can be split into phases after the fact
-without needing a separate session per phase. The TUI footer and the `/session`
-command show the same totals live.
+Messages are timestamped, so a run can be split into phases after the fact without needing a separate session per phase. The TUI footer and the `/session` command show the same totals live.
 
 ---
 
@@ -496,5 +430,4 @@ command show the same totals live.
 
 ---
 
-Built by [Frutero Club](https://github.com/fruteroclub) as part of Nebius Fellows
-DevRel work. Corrections and additions welcome — open an issue or a PR.
+Built by [Frutero Club](https://github.com/fruteroclub) as part of Nebius Fellows DevRel work. Corrections and additions welcome — open an issue or a PR.

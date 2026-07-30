@@ -5,6 +5,7 @@
   "enabledModels": [
     "nebius-token-factory/MiniMaxAI/MiniMax-M3",
     "nebius-token-factory/MiniMaxAI/MiniMax-M2.5",
+    "nebius-token-factory/zai-org/GLM-5.2",
     "nebius-token-factory/nvidia/Nemotron-3-Ultra-550b-a55b",
     "nebius-token-factory/zai-org/GLM-5.1",
     "nebius-token-factory/Qwen/Qwen3.5-397B-A17B",

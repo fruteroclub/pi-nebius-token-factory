@@ -29,8 +29,7 @@
     "start": {
       "command": "sudo install -d -m 755 /run/sshd && sudo /usr/sbin/sshd -D -e",
       "workdir": "/home/tenki"
-    },
-    "snapshotMode": "filesystem"
+    }
   },
   "resources": {
     "cpuCores": 2,

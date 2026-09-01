@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ -z "${NEBIUS_API_KEY:-}" ]]; then
+  cat >&2 <<'EOF'
+NEBIUS_API_KEY is not set.
+
+Set your own Nebius Token Factory API key for this shell, then run again:
+  export NEBIUS_API_KEY='[your Nebius Token Factory API key]'
+
+The image contains Pi and its Nebius model configuration, but never a user key.
+EOF
+  exit 2
+fi
+
+exec pi "$@"

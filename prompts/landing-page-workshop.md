@@ -1,0 +1,1 @@
+Use the loaded `landing-page-from-five-questions` skill. Start the five-question intake now. Ask only question 1 first, then wait for my answer. Keep the project local until I explicitly approve a deployment.

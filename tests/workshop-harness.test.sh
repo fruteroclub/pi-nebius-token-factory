@@ -32,6 +32,8 @@ grep -q 'allow_inbound: false' <<<"$test_launch_output"
 grep -q 'terminate_after_verification: true' <<<"$test_launch_output"
 
 grep -q 'npm prefix -g)/bin/pi' "$ROOT/.tenki/template.json"
-grep -q '/usr/local/bin/pi' "$ROOT/.tenki/template.json"
+grep -q '/usr/sbin/sshd -D -e' "$ROOT/.tenki/template.json"
+grep -q 'openssh-server' "$ROOT/.tenki/template.json"
+grep -q '"runAt": "boot"' "$ROOT/.tenki/template.json"
 
 echo 'workshop harness tests passed'

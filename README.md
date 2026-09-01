@@ -430,4 +430,164 @@ Messages are timestamped, so a run can be split into phases after the fact witho
 
 ---
 
+## Runbook — launch Pi and measure time to smile in Tenki
+
+Use this to independently verify the workshop image without giving a key to the local machine, creating a public endpoint, scaffolding Astro, or deploying to Render.
+
+> **Current release gate (2026-09-01):** image verification passes through `tenki sandbox exec`, but interactive SSH has not passed in this workspace with inbound networking disabled. Both the default managed identity and a fresh per-session `ed25519` key authorized at creation returned SSH status `255`. No Nebius key has been entered and no live model response has been tested in Tenki. Do not start a workshop participant on this flow until the **Connection Gate** below passes.
+
+### Connection Gate — required before a Pi interaction
+
+A run is eligible for the time-to-smile clock only when this command, from the launch machine, returns `tenki`:
+
+```bash
+"$TENKI_BIN" sandbox ssh --session "$NAME" -- whoami
+```
+
+If it returns any SSH error, terminate the sandbox immediately. Do not enter a Nebius key, do not use Pi, and do not treat the image as workshop-ready. The SSH issue needs either a separately approved inbound-enabled diagnostic or Tenki support before this interaction path can be certified.
+
+> **This runbook overrides the persistent-key advice in Step 2 for this test.** Do **not** put an attendee or workshop key in `~/.zshenv`, a `.env` file, Tenki `--env`, or any source-controlled file. You enter it only in the temporary sandbox shell, then discard that sandbox.
+
+### What this run does
+
+1. launches the prebuilt, private image below;
+2. verifies Pi, Render CLI, and the Nebius configuration files without a credential;
+3. passes the Connection Gate before an attendee enters any credential;
+4. starts Pi's five-question landing-page intake in a new sandbox workspace;
+5. confirms the Astro build and local preview; then
+6. terminates the sandbox immediately and confirms the terminal state.
+
+It does **not** create a public URL, Render service, Git commit, or deployment. Render is present only so Pi can prepare future deployment instructions after explicit approval.
+
+### Prerequisites
+
+- The Tenki CLI is installed and authenticated on the machine from which you run this.
+- You have your own Nebius Token Factory key available to type into a temporary remote shell.
+- You accept a short-lived sandbox charge. At Tenki's published rates, the 2 vCPU / 4 GiB RAM / 20 GiB disk maximum of 10 minutes is approximately **$0.02787 USD**. Terminate as soon as the checks pass; the five-minute idle timeout and ten-minute hard stop are safeguards, not cleanup.
+
+Confirm authentication and that you are not already leaving a test sandbox running:
+
+```bash
+TENKI_BIN="$HOME/.local/bin/tenki"
+"$TENKI_BIN" status
+"$TENKI_BIN" sandbox list --json
+```
+
+The image was built from commit `fcc461bc2b261a0d8eb659e802719ed9f7a0cf94` on the `test/pi-nebius-tenki-image` branch. Use its immutable digest, not a mutable image tag:
+
+```bash
+IMAGE='mlxs8y/pi-nebius-token-factory@sha256:a70c6d99862c42143e43440e34b3795eb5e24b241f3f796e496705f5ff2964cb'
+NAME="pi-nebius-verify-$(date +%Y%m%d-%H%M%S)"
+```
+
+### 1. Launch the bounded sandbox
+
+```bash
+"$TENKI_BIN" sandbox create \
+  --image "$IMAGE" \
+  --name "$NAME" \
+  --cpu 2 \
+  --memory-mb 4096 \
+  --disk-size-gb 20 \
+  --allow-inbound=false \
+  --allow-outbound=true \
+  --idle-timeout 5m \
+  --max-duration 10m \
+  --metadata purpose=pi-nebius-image-verification \
+  --metadata lifecycle=disposable
+
+"$TENKI_BIN" sandbox get --session "$NAME" --json
+```
+
+Proceed only after the session reports `RUNNING` or its equivalent ready state.
+
+### 2. Verify the baked image, without a Nebius key
+
+These checks do not call Nebius or expose a credential:
+
+```bash
+"$TENKI_BIN" sandbox exec --session "$NAME" --timeout 30s -- \
+  bash -lc 'set -e; pi --version; render --version; test -s /home/tenki/.pi/agent/models.json; test -s /home/tenki/.pi/agent/settings.json; printf "image verification passed\\n"'
+```
+
+If this command fails, **do not** enter a Nebius key. Terminate the sandbox as described in [Step 5](#5-terminate-and-confirm-cleanup).
+
+### 3. Start the five-question Pi session — only after the Connection Gate passes
+
+Open an interactive shell in the sandbox:
+
+```bash
+"$TENKI_BIN" sandbox ssh --session "$NAME"
+```
+
+Inside the sandbox, type your key at the prompt. It is exported only to this shell and its Pi process; these commands do not write it to a file:
+
+```bash
+read -rs -p 'Nebius Token Factory key: ' NEBIUS_API_KEY
+printf '\n'
+export NEBIUS_API_KEY
+
+cd /home/tenki/workspace
+pi \
+  --provider nebius-token-factory \
+  --model MiniMaxAI/MiniMax-M3 \
+  --no-context-files \
+  --no-extensions \
+  --no-skills \
+  --no-prompt-templates \
+  --tools read,bash,write \
+  --skill /home/tenki/workshop-skills/landing-page-from-five-questions \
+  "$(cat /home/tenki/START_LANDING_PAGE.md)"
+```
+
+Pi must ask **only question one** first, then wait. Its five-question sequence is:
+
+1. problem and audience;
+2. solution;
+3. how it works;
+4. benefits; and
+5. pricing or call to action.
+
+After all five answers, Pi must restate the brief, wait for approval, create the Astro project under `/home/tenki/workspace`, run `npm run build`, and start a local preview. It must not deploy.
+
+When Pi exits, clear the temporary credential:
+
+```bash
+unset NEBIUS_API_KEY
+exit
+```
+
+### 4. Time-to-smile clock and acceptance criteria
+
+**Target:** eight minutes from Pi displaying question one to a working local Astro preview. This is a product target, **not yet a measured claim**.
+
+Start the clock when Pi displays question one. Stop only when all of these are true:
+
+- all five answers were collected one at a time;
+- the user approved the summarized brief;
+- an Astro project exists below `/home/tenki/workspace`;
+- `npm run build` succeeds; and
+- Astro prints a localhost preview URL.
+
+Record the elapsed time, Pi and Astro versions, model ID, whether all five questions were asked, build outcome, and any recovery action. Do not record the Nebius key or Pi session files.
+
+The sandbox is isolation from your Mac, not an outbound-network security boundary for a tool-using agent. Do not use untrusted prompts or web content, deployment credentials, Render/GitHub credentials, or prompts that ask Pi to use tools outside this bounded project workflow.
+
+### 5. Terminate and confirm cleanup
+
+Run this from your local terminal immediately after the check—whether it passed or failed:
+
+```bash
+"$TENKI_BIN" sandbox terminate --session "$NAME"
+"$TENKI_BIN" sandbox get --session "$NAME" --json
+```
+
+**Pass condition:** the final state is `TERMINATED`. If the terminal returns a different state, repeat only the `sandbox get` check briefly; do not start a second sandbox while the first one may still be billable.
+
+### Record only non-sensitive evidence
+
+Record the sandbox name, image digest, Pi version, Render version, pass/fail result, and final `TERMINATED` state. Do **not** record the Nebius key, command environment, SSH transcript containing secrets, or model session files.
+
+---
+
 Built by [Frutero Club](https://github.com/fruteroclub) as part of Nebius Fellows DevRel work. Corrections and additions welcome — open an issue or a PR.

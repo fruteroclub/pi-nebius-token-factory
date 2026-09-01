@@ -19,11 +19,19 @@
   "steps": [
     {
       "run": {
-        "command": "set -eu; npm install -g --ignore-scripts @earendil-works/pi-coding-agent@0.84.4; sudo ln -sfn \"$(npm prefix -g)/bin/pi\" /usr/local/bin/pi; curl -fsSL https://github.com/render-oss/cli/releases/download/v2.25.0/cli_2.25.0_linux_amd64.zip -o /tmp/render.zip; echo '3b3f1f839ef36b81f12d84ac7288f1c96f9f7519b39c53fe6f866612f704e7cd  /tmp/render.zip' | sha256sum -c -; unzip -q /tmp/render.zip -d /tmp/render-cli; sudo install -m 755 /tmp/render-cli/cli_v2.25.0 /usr/local/bin/render; rm -rf /tmp/render.zip /tmp/render-cli; install -d -m 700 /home/tenki/.pi/agent /home/tenki/workspace /home/tenki/workshop-skills; install -m 600 /home/tenki/app/models.json /home/tenki/.pi/agent/models.json; install -m 600 /home/tenki/app/settings.json /home/tenki/.pi/agent/settings.json; cp -R /home/tenki/app/skills/landing-page-from-five-questions /home/tenki/workshop-skills/; chmod 700 /home/tenki/workshop-skills/landing-page-from-five-questions; chmod 600 /home/tenki/workshop-skills/landing-page-from-five-questions/SKILL.md; install -m 644 /home/tenki/app/prompts/landing-page-workshop.md /home/tenki/START_LANDING_PAGE.md; pi --version; render --version; test -s /home/tenki/.pi/agent/models.json; test -s /home/tenki/.pi/agent/settings.json",
+        "command": "set -eu; sudo apt-get update; sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends openssh-server; npm install -g --ignore-scripts @earendil-works/pi-coding-agent@0.84.4; sudo ln -sfn \"$(npm prefix -g)/bin/pi\" /usr/local/bin/pi; curl -fsSL https://github.com/render-oss/cli/releases/download/v2.25.0/cli_2.25.0_linux_amd64.zip -o /tmp/render.zip; echo '3b3f1f839ef36b81f12d84ac7288f1c96f9f7519b39c53fe6f866612f704e7cd  /tmp/render.zip' | sha256sum -c -; unzip -q /tmp/render.zip -d /tmp/render-cli; sudo install -m 755 /tmp/render-cli/cli_v2.25.0 /usr/local/bin/render; rm -rf /tmp/render.zip /tmp/render-cli; install -d -m 700 /home/tenki/.pi/agent /home/tenki/workspace /home/tenki/workshop-skills; install -m 600 /home/tenki/app/models.json /home/tenki/.pi/agent/models.json; install -m 600 /home/tenki/app/settings.json /home/tenki/.pi/agent/settings.json; cp -R /home/tenki/app/skills/landing-page-from-five-questions /home/tenki/workshop-skills/; chmod 700 /home/tenki/workshop-skills/landing-page-from-five-questions; chmod 600 /home/tenki/workshop-skills/landing-page-from-five-questions/SKILL.md; install -m 644 /home/tenki/app/prompts/landing-page-workshop.md /home/tenki/START_LANDING_PAGE.md; pi --version; render --version; test -s /home/tenki/.pi/agent/models.json; test -s /home/tenki/.pi/agent/settings.json",
         "timeoutSeconds": 600
       }
     }
   ],
+  "runtime": {
+    "runAt": "boot",
+    "start": {
+      "command": "sudo install -d -m 755 /run/sshd && sudo /usr/sbin/sshd -D -e",
+      "workdir": "/home/tenki"
+    },
+    "snapshotMode": "filesystem"
+  },
   "resources": {
     "cpuCores": 2,
     "memoryMb": 4096,

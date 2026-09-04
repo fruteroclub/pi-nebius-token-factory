@@ -434,7 +434,7 @@ Messages are timestamped, so a run can be split into phases after the fact witho
 
 Use this to independently verify the workshop image without giving a key to the local machine, creating a public endpoint, scaffolding Astro, or deploying to Render.
 
-> **Current release gate (2026-09-01):** image verification passes through `tenki sandbox exec`, but interactive SSH has not passed in this workspace with inbound networking disabled. Both the default managed identity and a fresh per-session `ed25519` key authorized at creation returned SSH status `255`. No Nebius key has been entered and no live model response has been tested in Tenki. Do not start a workshop participant on this flow until the **Connection Gate** below passes.
+> **Current release gate (2026-09-03): SSH/TTY PASSED; model-flow gate remains.** Tenki's managed SSH patch has been verified with Tenki CLI `v1.5.0` against both a plain sandbox and the private Pi image `mlxs8y/pi-nebius-token-factory@sha256:0fc40ae5ee9ba4a74cb64ae2554cc7685c1ce34e0d0ad86e3d0d187914bbc61c`. With inbound and outbound networking disabled, managed SSH returned `whoami → tenki`; an actual interactive shell allocated `/dev/pts/0`; Pi returned `0.84.4`; Render returned `v2.25.0`; and the baked Pi configuration files were present. Every test sandbox was terminated and no Nebius key was entered. The current CLI still lacks the docs-listed `--identity-file` flag, but it is no longer needed for Tenki-managed SSH. Real Nebius inference and the five-question Astro flow remain untested and must use a user-owned key only inside the verified interactive shell.
 
 ### Connection Gate — required before a Pi interaction
 
@@ -444,7 +444,7 @@ A run is eligible for the time-to-smile clock only when this command, from the l
 "$TENKI_BIN" sandbox ssh --session "$NAME" -- whoami
 ```
 
-If it returns any SSH error, terminate the sandbox immediately. Do not enter a Nebius key, do not use Pi, and do not treat the image as workshop-ready. The SSH issue needs either a separately approved inbound-enabled diagnostic or Tenki support before this interaction path can be certified.
+If it returns any SSH error, terminate the sandbox immediately. Do not enter a Nebius key, do not use Pi, and do not treat the image as workshop-ready. The connection gate passed on 2026-09-03 with Tenki-managed SSH and an interactive `/dev/pts/0` shell, but repeat this non-secret check before every live run. Continue to the real model and five-question flow only when the facilitator explicitly approves use of their own Nebius key.
 
 > **This runbook overrides the persistent-key advice in Step 2 for this test.** Do **not** put an attendee or workshop key in `~/.zshenv`, a `.env` file, Tenki `--env`, or any source-controlled file. You enter it only in the temporary sandbox shell, then discard that sandbox.
 
@@ -476,7 +476,7 @@ TENKI_BIN="$HOME/.local/bin/tenki"
 The image was built from commit `fcc461bc2b261a0d8eb659e802719ed9f7a0cf94` on the `test/pi-nebius-tenki-image` branch. Use its immutable digest, not a mutable image tag:
 
 ```bash
-IMAGE='mlxs8y/pi-nebius-token-factory@sha256:a70c6d99862c42143e43440e34b3795eb5e24b241f3f796e496705f5ff2964cb'
+IMAGE='mlxs8y/pi-nebius-token-factory@sha256:0fc40ae5ee9ba4a74cb64ae2554cc7685c1ce34e0d0ad86e3d0d187914bbc61c'
 NAME="pi-nebius-verify-$(date +%Y%m%d-%H%M%S)"
 ```
 

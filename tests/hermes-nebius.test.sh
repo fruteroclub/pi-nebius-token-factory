@@ -8,6 +8,9 @@ python3 -m json.tool "$ROOT/hermes-nebius/config/pi-settings.json" >/dev/null
 bash -n "$ROOT/hermes-nebius/bin/hermes-workshop"
 bash -n "$ROOT/hermes-nebius/bin/pi-subagent"
 bash -n "$ROOT/hermes-nebius/bin/workshop-agent"
+# Canonical VM bootstrapper lives in the public Builder Pack and is installed at image build time.
+grep -q '03f04ff6827dd34bbd63a63627e384c262fc7d67' "$ROOT/.tenki/hermes-nebius-template.json"
+grep -q 'onboard-telegram-agent /home/tenki/.local/bin/onboard-telegram-agent' "$ROOT/.tenki/hermes-nebius-template.json"
 python3 -m py_compile "$ROOT/hermes-nebius/bin/budget-estimate"
 
 test -x "$ROOT/hermes-nebius/bin/workshop-agent"
@@ -25,6 +28,8 @@ grep -q 'model.default MiniMaxAI/MiniMax-M3' "$ROOT/.tenki/hermes-nebius-templat
 grep -q 'hermes-nebius/bin/workshop-agent /home/tenki/.local/bin/workshop-agent' "$ROOT/.tenki/hermes-nebius-template.json"
 grep -q 'hermes config get model.default | grep -qx MiniMaxAI/MiniMax-M3' "$ROOT/scripts/verify-hermes-nebius-image.sh"
 grep -q '! workshop-agent start' "$ROOT/scripts/verify-hermes-nebius-image.sh"
+grep -q 'onboard-telegram-agent --help' "$ROOT/scripts/verify-hermes-nebius-image.sh"
+grep -q '! onboard-telegram-agent' "$ROOT/scripts/verify-hermes-nebius-image.sh"
 ! grep -REn --exclude='hermes-nebius.test.sh' --exclude='README.md' '(NEBIUS_API_KEY=.+[^}]|TELEGRAM_BOT_TOKEN=.+[^}]|--api-key)' "$ROOT/hermes-nebius" >/dev/null
 
 python3 "$ROOT/hermes-nebius/bin/budget-estimate" --profile hermes-budget --input-tokens 1000000 --output-tokens 1000000 | grep -q 'estimated_usd=\$1.3000'

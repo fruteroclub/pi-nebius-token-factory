@@ -1,0 +1,24 @@
+#!/usr/bin/env python3
+"""Estimate one Nebius Token Factory inference call from reported token usage."""
+from decimal import Decimal, ROUND_HALF_UP
+import argparse
+
+RATES = {
+    "hermes-pro": ("Nemotron 3 Ultra", Decimal("1.00"), Decimal("3.00")),
+    "hermes-budget": ("MiniMax M3", Decimal("0.30"), Decimal("1.00")),
+    "developer-pro": ("Kimi K2.7 Code", Decimal("0.95"), Decimal("4.00")),
+    "developer-budget": ("gpt-oss-120b", Decimal("0.15"), Decimal("0.60")),
+}
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--profile", required=True, choices=sorted(RATES))
+parser.add_argument("--input-tokens", required=True, type=int)
+parser.add_argument("--output-tokens", required=True, type=int)
+args = parser.parse_args()
+if args.input_tokens < 0 or args.output_tokens < 0:
+    parser.error("token counts must be non-negative")
+name, input_rate, output_rate = RATES[args.profile]
+cost = (Decimal(args.input_tokens) * input_rate + Decimal(args.output_tokens) * output_rate) / Decimal(1_000_000)
+print(f"profile={args.profile}")
+print(f"model={name}")
+print(f"estimated_usd=${cost.quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)}")
+print("note=Estimate only. Enforce the $25 workshop ceiling in the Token Factory account/project and reconcile against provider billing.")

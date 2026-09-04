@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+profile="pro"
+workdir="/home/tenki/workspace"
+prompt=""
+while (($#)); do
+  case "$1" in
+    --profile) profile="${2:?missing profile}"; shift 2 ;;
+    --workdir) workdir="${2:?missing workdir}"; shift 2 ;;
+    --prompt) prompt="${2:?missing prompt}"; shift 2 ;;
+    --help|-h)
+      printf 'Usage: pi-subagent [--profile pro|budget] [--workdir DIR] --prompt TEXT\n'
+      exit 0 ;;
+    *) printf 'Unknown argument: %s\n' "$1" >&2; exit 2 ;;
+  esac
+done
+
+case "$profile" in
+  pro) model="moonshotai/Kimi-K2.7-Code" ;;
+  budget) model="openai/gpt-oss-120b" ;;
+  *) printf 'Profile must be pro or budget.\n' >&2; exit 2 ;;
+esac
+: "${NEBIUS_API_KEY:?Set NEBIUS_API_KEY only in this temporary shell before launching Pi.}"
+[[ -n "$prompt" ]] || { printf 'A --prompt is required.\n' >&2; exit 2; }
+[[ "$workdir" == /home/tenki/workspace* ]] || { printf 'Workdir must remain beneath /home/tenki/workspace.\n' >&2; exit 2; }
+mkdir -p -m 700 "$workdir"
+cd "$workdir"
+export PI_CODING_AGENT_DIR=/home/tenki/.pi/agent
+exec pi --provider nebius-token-factory --model "$model" --print --thinking medium --no-context-files --no-extensions --no-skills --no-prompt-templates --tools read,bash,write "$prompt"

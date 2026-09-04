@@ -1,0 +1,48 @@
+{
+  "providers": {
+    "nebius-token-factory": {
+      "baseUrl": "https://api.tokenfactory.nebius.com/v1/",
+      "api": "openai-completions",
+      "apiKey": "${NEBIUS_API_KEY}",
+      "compat": { "supportsDeveloperRole": false },
+      "models": [
+        {
+          "id": "nvidia/Nemotron-3-Ultra-550b-a55b",
+          "name": "Hermes orchestrator — Pro (Nemotron 3 Ultra)",
+          "reasoning": true,
+          "input": ["text"],
+          "contextWindow": 1048576,
+          "maxTokens": 1048576,
+          "cost": { "input": 1.0, "output": 3.0, "cacheRead": 0, "cacheWrite": 0 }
+        },
+        {
+          "id": "MiniMaxAI/MiniMax-M3",
+          "name": "Hermes orchestrator — Budget (MiniMax M3)",
+          "reasoning": true,
+          "input": ["text"],
+          "contextWindow": 1048576,
+          "maxTokens": 1048576,
+          "cost": { "input": 0.3, "output": 1.0, "cacheRead": 0, "cacheWrite": 0 }
+        },
+        {
+          "id": "moonshotai/Kimi-K2.7-Code",
+          "name": "Pi developer subagent — Pro (Kimi K2.7 Code)",
+          "reasoning": true,
+          "input": ["text"],
+          "contextWindow": 262144,
+          "maxTokens": 8000,
+          "cost": { "input": 0.95, "output": 4.0, "cacheRead": 0, "cacheWrite": 0 }
+        },
+        {
+          "id": "openai/gpt-oss-120b",
+          "name": "Pi developer subagent — Budget (gpt-oss-120b)",
+          "reasoning": true,
+          "input": ["text"],
+          "contextWindow": 131072,
+          "maxTokens": 131072,
+          "cost": { "input": 0.15, "output": 0.6, "cacheRead": 0, "cacheWrite": 0 }
+        }
+      ]
+    }
+  }
+}

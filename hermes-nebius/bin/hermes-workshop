@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+profile="pro"
+if [[ "${1:-}" == "--profile" ]]; then
+  profile="${2:?missing profile after --profile}"
+  shift 2
+fi
+
+case "$profile" in
+  pro) model="nvidia/Nemotron-3-Ultra-550b-a55b" ;;
+  budget) model="MiniMaxAI/MiniMax-M3" ;;
+  *) printf 'Usage: hermes-workshop [--profile pro|budget] [hermes chat options]\n' >&2; exit 2 ;;
+esac
+
+: "${NEBIUS_API_KEY:?Set NEBIUS_API_KEY only in this temporary shell before launching Hermes.}"
+export HOME=/home/tenki
+export HERMES_HOME=/home/tenki/.hermes
+export PATH=/usr/local/bin:/home/tenki/.local/bin:$PATH
+mkdir -p -m 700 /home/tenki/workspace
+cd /home/tenki/workspace
+exec hermes chat --provider nebius-token-factory --model "$model" --in /home/tenki/workspace "$@"

@@ -30,7 +30,7 @@ created=true
 
 "$TENKI_BIN" sandbox exec --session "$NAME" --timeout 60s -- bash -lc '
   set -euo pipefail
-  export HOME=/home/tenki HERMES_HOME=/home/tenki/.hermes PI_CODING_AGENT_DIR=/home/tenki/.pi/agent PI_OFFLINE=1
+  export HOME=/home/tenki HERMES_HOME=/home/tenki/.hermes PI_CODING_AGENT_DIR=/home/tenki/.pi/agent PI_OFFLINE=1 PATH=/home/tenki/.local/bin:/usr/local/bin:$PATH
   hermes --version
   pi --version
   test -s /home/tenki/.hermes/config.yaml

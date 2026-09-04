@@ -9,7 +9,7 @@ bash -n "$ROOT/hermes-nebius/bin/hermes-workshop"
 bash -n "$ROOT/hermes-nebius/bin/pi-subagent"
 bash -n "$ROOT/hermes-nebius/bin/workshop-agent"
 # Canonical VM bootstrapper lives in the public Builder Pack and is installed at image build time.
-grep -q '90b66258242ddd53cd5df4c6496a7dd975034144' "$ROOT/.tenki/hermes-nebius-template.json"
+grep -q 'ba77787d34a353c15ec6a3a46d35b723024be8f3' "$ROOT/.tenki/hermes-nebius-template.json"
 grep -q 'onboard-hermes-nebius /home/tenki/.local/bin/onboard-hermes-nebius' "$ROOT/.tenki/hermes-nebius-template.json"
 grep -q 'onboard-telegram-agent /home/tenki/.local/bin/onboard-telegram-agent' "$ROOT/.tenki/hermes-nebius-template.json"
 python3 -m py_compile "$ROOT/hermes-nebius/bin/budget-estimate"

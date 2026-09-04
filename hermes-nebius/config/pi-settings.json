@@ -3,7 +3,7 @@
   "defaultModel": "moonshotai/Kimi-K2.7-Code",
   "defaultThinkingLevel": "medium",
   "enabledModels": [
-    "nebius-token-factory/moonshotai/Kimi-K2.7-Code",
-    "nebius-token-factory/openai/gpt-oss-120b"
+    "moonshotai/Kimi-K2.7-Code",
+    "openai/gpt-oss-120b"
   ]
 }

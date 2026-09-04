@@ -28,7 +28,7 @@ trap cleanup EXIT
   --json >/dev/null
 created=true
 
-"$TENKI_BIN" sandbox exec --session "$NAME" --timeout 60s -- bash -lc '
+EXEC_OUTPUT="$("$TENKI_BIN" sandbox exec --session "$NAME" --timeout 60s --json -- bash -lc '
   set -euo pipefail
   export HOME=/home/tenki HERMES_HOME=/home/tenki/.hermes PI_CODING_AGENT_DIR=/home/tenki/.pi/agent PI_OFFLINE=1 PATH=/home/tenki/.local/bin:/usr/local/bin:$PATH
   hermes --version
@@ -46,6 +46,14 @@ created=true
   ! hermes-workshop --profile budget --query test >/dev/null 2>&1
   ! pi-subagent --profile budget --prompt test >/dev/null 2>&1
   echo hermes_nebius_image_no_key_verification=passed
+')"
+printf '%s\n' "$EXEC_OUTPUT"
+printf '%s' "$EXEC_OUTPUT" | python3 -c '
+import json, sys
+result = json.load(sys.stdin)
+if result.get("status") not in {"SUCCEEDED", "COMPLETED"} or result.get("exit_code") != 0:
+    raise SystemExit(f"remote verification failed: {result}")
+print("remote_verification_status=passed")
 '
 
 echo "Verification passed. The disposable sandbox $NAME will now be terminated."

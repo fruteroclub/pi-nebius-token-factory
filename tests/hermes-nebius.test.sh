@@ -9,7 +9,8 @@ bash -n "$ROOT/hermes-nebius/bin/hermes-workshop"
 bash -n "$ROOT/hermes-nebius/bin/pi-subagent"
 bash -n "$ROOT/hermes-nebius/bin/workshop-agent"
 # Canonical VM bootstrapper lives in the public Builder Pack and is installed at image build time.
-grep -q 'f2960df12bf1641d1555e455f96831ef38802ccc' "$ROOT/.tenki/hermes-nebius-template.json"
+grep -q '90b66258242ddd53cd5df4c6496a7dd975034144' "$ROOT/.tenki/hermes-nebius-template.json"
+grep -q 'onboard-hermes-nebius /home/tenki/.local/bin/onboard-hermes-nebius' "$ROOT/.tenki/hermes-nebius-template.json"
 grep -q 'onboard-telegram-agent /home/tenki/.local/bin/onboard-telegram-agent' "$ROOT/.tenki/hermes-nebius-template.json"
 python3 -m py_compile "$ROOT/hermes-nebius/bin/budget-estimate"
 
@@ -29,6 +30,8 @@ grep -q 'hermes-nebius/bin/workshop-agent /home/tenki/.local/bin/workshop-agent'
 grep -q 'hermes config get model.default | grep -qx MiniMaxAI/MiniMax-M3' "$ROOT/scripts/verify-hermes-nebius-image.sh"
 grep -q '! workshop-agent start' "$ROOT/scripts/verify-hermes-nebius-image.sh"
 grep -q 'onboard-telegram-agent --help' "$ROOT/scripts/verify-hermes-nebius-image.sh"
+grep -q 'onboard-hermes-nebius --help' "$ROOT/scripts/verify-hermes-nebius-image.sh"
+grep -q '! onboard-hermes-nebius' "$ROOT/scripts/verify-hermes-nebius-image.sh"
 grep -q '! onboard-telegram-agent' "$ROOT/scripts/verify-hermes-nebius-image.sh"
 ! grep -REn --exclude='hermes-nebius.test.sh' --exclude='README.md' '(NEBIUS_API_KEY=.+[^}]|TELEGRAM_BOT_TOKEN=.+[^}]|--api-key)' "$ROOT/hermes-nebius" >/dev/null
 

@@ -48,6 +48,8 @@ EXEC_OUTPUT="$("$TENKI_BIN" sandbox exec --session "$NAME" --timeout 60s --json 
   ! workshop-agent start >/dev/null 2>&1
   onboard-telegram-agent --help | grep -q "Usage: onboard-telegram-agent"
   ! onboard-telegram-agent >/dev/null 2>&1
+  onboard-hermes-nebius --help | grep -q "Usage: onboard-hermes-nebius"
+  ! onboard-hermes-nebius >/dev/null 2>&1
   echo hermes_nebius_image_no_key_verification=passed
 ')"
 printf '%s\n' "$EXEC_OUTPUT"

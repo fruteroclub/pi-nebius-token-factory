@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# Controlled Hermes Telegram gateway lifecycle for a Tenki sandbox.
+set -euo pipefail
+
+TENKI_HOME="${TENKI_HOME:-/home/tenki}"
+export HOME="$TENKI_HOME"
+export HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
+export PATH="/usr/local/bin:$HOME/.local/bin:$PATH"
+HERMES_BIN="${HERMES_BIN:-hermes}"
+STATE_DIR="$HERMES_HOME/run"
+PID_FILE="$STATE_DIR/telegram-gateway.pid"
+LOG_FILE="$HERMES_HOME/logs/telegram-gateway.log"
+
+usage() {
+  cat >&2 <<'EOF'
+Usage: workshop-agent <start|stop|status|logs>
+
+start  Start the private Telegram gateway. Requires NEBIUS_API_KEY,
+       TELEGRAM_BOT_TOKEN, and TELEGRAM_ALLOWED_USERS in this shell only.
+stop   Gracefully stop the Telegram gateway.
+status Show whether the gateway PID is alive.
+logs   Tail the gateway log (secrets remain redacted by Hermes).
+EOF
+}
+
+is_running() {
+  [[ -f "$PID_FILE" ]] || return 1
+  local pid
+  pid="$(<"$PID_FILE")"
+  [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null
+}
+
+require_start_configuration() {
+  : "${NEBIUS_API_KEY:?Set NEBIUS_API_KEY only in this temporary shell.}"
+  : "${TELEGRAM_BOT_TOKEN:?Set TELEGRAM_BOT_TOKEN only in this temporary shell.}"
+  : "${TELEGRAM_ALLOWED_USERS:?Set TELEGRAM_ALLOWED_USERS to your numeric Telegram user ID.}"
+  if [[ ! "$TELEGRAM_ALLOWED_USERS" =~ ^[0-9]+(,[0-9]+)*$ ]]; then
+    printf 'TELEGRAM_ALLOWED_USERS must be one or more comma-separated numeric Telegram user IDs.\n' >&2
+    exit 2
+  fi
+  if [[ "${GATEWAY_ALLOW_ALL_USERS:-}" == "true" ]]; then
+    printf 'Refusing to start: GATEWAY_ALLOW_ALL_USERS must not be true.\n' >&2
+    exit 2
+  fi
+}
+
+start() {
+  require_start_configuration
+  if is_running; then
+    printf 'Telegram gateway already running (PID %s).\n' "$(<"$PID_FILE")"
+    return 0
+  fi
+  rm -f "$PID_FILE"
+  install -d -m 700 "$STATE_DIR" "$HERMES_HOME/logs" "$HOME/workspace"
+  nohup "$HERMES_BIN" gateway run --no-supervise >>"$LOG_FILE" 2>&1 < /dev/null &
+  local pid=$!
+  printf '%s\n' "$pid" >"$PID_FILE"
+  sleep 1
+  if ! is_running; then
+    printf 'Telegram gateway exited during startup. Run workshop-agent logs.\n' >&2
+    rm -f "$PID_FILE"
+    return 1
+  fi
+  printf 'Telegram gateway running (PID %s). Allowed Telegram IDs: %s\n' "$pid" "$TELEGRAM_ALLOWED_USERS"
+}
+
+stop() {
+  if ! [[ -f "$PID_FILE" ]]; then
+    printf 'Telegram gateway is not running.\n'
+    return 0
+  fi
+  local pid
+  pid="$(<"$PID_FILE")"
+  if ! is_running; then
+    rm -f "$PID_FILE"
+    printf 'Removed stale Telegram gateway PID file.\n'
+    return 0
+  fi
+  kill -TERM "$pid"
+  for _ in $(seq 1 15); do
+    is_running || break
+    sleep 1
+  done
+  if is_running; then
+    printf 'Telegram gateway did not exit cleanly; refusing to force-kill. Check logs.\n' >&2
+    return 1
+  fi
+  rm -f "$PID_FILE"
+  printf 'Telegram gateway stopped.\n'
+}
+
+status() {
+  if is_running; then
+    printf 'Telegram gateway: running (PID %s)\n' "$(<"$PID_FILE")"
+  else
+    [[ -f "$PID_FILE" ]] && rm -f "$PID_FILE"
+    printf 'Telegram gateway: stopped\n'
+    return 1
+  fi
+}
+
+logs() {
+  [[ -f "$LOG_FILE" ]] || { printf 'No gateway log exists yet.\n' >&2; return 1; }
+  tail -n 100 -f "$LOG_FILE"
+}
+
+case "${1:-}" in
+  start) start ;;
+  stop) stop ;;
+  status) status ;;
+  logs) logs ;;
+  *) usage; exit 2 ;;
+esac

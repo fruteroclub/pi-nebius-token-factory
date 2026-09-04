@@ -52,6 +52,51 @@ pi-subagent --profile budget --workdir /home/tenki/workspace/example --prompt 'I
 
 Use `budget-estimate --profile developer-budget --input-tokens 10000 --output-tokens 2000` to estimate a call from reported usage.
 
+## Telegram operator control
+
+`workshop-agent` provides a private Telegram control plane inside a running Tenki sandbox:
+
+```text
+workshop-agent start
+workshop-agent status
+workshop-agent logs
+workshop-agent stop
+```
+
+It runs Hermes through Telegram **long polling**: outbound networking must be enabled, inbound networking remains disabled, and no public port or webhook is used. The gateway only starts when all three values are present in the current managed SSH shell:
+
+- `NEBIUS_API_KEY` — Nebius Token Factory credential;
+- `TELEGRAM_BOT_TOKEN` — BotFather credential for a dedicated private bot;
+- `TELEGRAM_ALLOWED_USERS` — one or more comma-separated numeric Telegram user IDs.
+
+The command rejects a missing/invalid allowlist and refuses `GATEWAY_ALLOW_ALL_USERS=true`. It does not write either credential to disk, Git, the image, or Tenki session configuration. Hermes secret redaction remains enabled.
+
+### First use
+
+1. Create a dedicated bot through [@BotFather](https://t.me/BotFather). Keep its token private.
+2. Obtain your numeric Telegram ID (for example, by messaging [@userinfobot](https://t.me/userinfobot)). Do not use a Telegram username as the allowlist value.
+3. Create a Tenki sandbox from this image with **outbound enabled** and **inbound disabled**, then connect via managed SSH.
+4. In that SSH shell, enter credentials without echoing them or adding them to shell history:
+
+```bash
+read -rsp 'Nebius Token Factory key: ' NEBIUS_API_KEY; echo; export NEBIUS_API_KEY
+read -rsp 'Telegram bot token: ' TELEGRAM_BOT_TOKEN; echo; export TELEGRAM_BOT_TOKEN
+export TELEGRAM_ALLOWED_USERS='<your-numeric-Telegram-ID>'
+workshop-agent start
+```
+
+Open the bot’s direct message in Telegram and send `/whoami`; it should report the allowed account. `/status` shows the current Hermes session, `/stop` cancels a running agent turn, and `/model hermes-pro` temporarily escalates that Telegram session. `/new` returns it to the Budget default.
+
+### Stop and cleanup
+
+```bash
+workshop-agent stop
+```
+
+This stops the Telegram gateway and ends the process that holds the runtime-only credentials. Then terminate the Tenki sandbox from the operator terminal when the session is over; stopping the gateway alone does not terminate the sandbox.
+
+Do not add the bot to a group or turn off BotFather privacy mode for this private operator workflow. A Telegram bot token grants control of the bot: revoke it in BotFather immediately if it is exposed.
+
 ## Build and no-key verification
 
 ```bash

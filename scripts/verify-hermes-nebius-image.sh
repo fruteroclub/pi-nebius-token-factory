@@ -36,7 +36,7 @@ EXEC_OUTPUT="$("$TENKI_BIN" sandbox exec --session "$NAME" --timeout 60s --json 
   test -s /home/tenki/.hermes/config.yaml
   test -s /home/tenki/.pi/agent/models.json
   hermes config get model.provider | grep -qx nebius-token-factory
-  hermes config get model.default | grep -qx nvidia/Nemotron-3-Ultra-550b-a55b
+  hermes config get model.default | grep -qx MiniMaxAI/MiniMax-M3
   for model in nvidia/Nemotron-3-Ultra-550b-a55b MiniMaxAI/MiniMax-M3 moonshotai/Kimi-K2.7-Code openai/gpt-oss-120b; do
     grep -q "$model" /home/tenki/.pi/agent/models.json
   done
@@ -45,6 +45,7 @@ EXEC_OUTPUT="$("$TENKI_BIN" sandbox exec --session "$NAME" --timeout 60s --json 
   budget-estimate --profile developer-budget --input-tokens 1000000 --output-tokens 1000000 | grep -q "estimated_usd=\$0.7500"
   ! hermes-workshop --profile budget --query test >/dev/null 2>&1
   ! pi-subagent --profile budget --prompt test >/dev/null 2>&1
+  ! workshop-agent start >/dev/null 2>&1
   echo hermes_nebius_image_no_key_verification=passed
 ')"
 printf '%s\n' "$EXEC_OUTPUT"
